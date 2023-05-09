@@ -201,10 +201,18 @@ bool point_cmp(pcl::PointXYZI a, pcl::PointXYZI b) {
     return a.z < b.z;
 }
 
+bool cmp_x(pcl::PointXYZI a, pcl::PointXYZI b) {
+    return a.x < b.x;
+}
+
+bool cmp_y(pcl::PointXYZI a, pcl::PointXYZI b) {
+    return a.y < b.y;
+}
+
 void ERASOR::extract_initial_seeds_(
         const pcl::PointCloud<pcl::PointXYZI> &p_sorted,
         pcl::PointCloud<pcl::PointXYZI> &init_seeds) {
-    init_seeds.points.clear();
+    // init_seeds.points.clear();
     pcl::PointCloud<pcl::PointXYZI> g_seeds_pc;
 
     // LPR is the mean of low point representative
@@ -227,7 +235,7 @@ void ERASOR::extract_initial_seeds_(
     }
 //  std::cout<<"hey!! g seeds"<<g_seeds_pc.points.size()<<std::endl;
     // return seeds points
-    init_seeds = g_seeds_pc;
+    init_seeds += g_seeds_pc;
 }
 
 void ERASOR::extract_ground(
@@ -237,25 +245,81 @@ void ERASOR::extract_ground(
     if (!outliers.empty()) outliers.clear();
 
     auto src_copy = src;
-    std::sort(src_copy.points.begin(), src_copy.points.end(), point_cmp);
-    // 1. remove_outliers;
-    auto     it = src_copy.points.begin();
-    for (int i  = 0; i < src_copy.points.size(); i++) {
-        // if(src_copy.points[i].z < -0.5*SENSOR_HEIGHTS){
-        if (src_copy.points[i].z < min_h) {
-            it++;
-        } else {
-            break;
+    auto num_point = src_copy.size();
+    std::sort(src_copy.points.begin(), src_copy.points.end(), cmp_x);
+    auto x_min = src_copy[0].x;
+    auto x_max = src_copy[num_point - 1].x;
+    std::sort(src_copy.points.begin(), src_copy.points.end(), cmp_y);
+    auto y_min = src_copy[0].y;
+    auto y_max = src_copy[num_point - 1].y;
+
+    std::vector<pcl::PointCloud<pcl::PointXYZI> > cloud_vector(9);
+
+    auto x0 = (x_max - x_min) / 3 * 0 + x_min;
+    auto x1 = (x_max - x_min) / 3 * 1 + x_min;
+    auto x2 = (x_max - x_min) / 3 * 2 + x_min;
+    auto x3 = (x_max - x_min) / 3 * 3 + x_min;
+    auto y0 = (y_max - y_min) / 3 * 0 + y_min;
+    auto y1 = (y_max - y_min) / 3 * 1 + y_min;
+    auto y2 = (y_max - y_min) / 3 * 2 + y_min;
+    auto y3 = (y_max - y_min) / 3 * 3 + y_min;
+    // int debugcnt = 0;
+    for (auto point : src_copy.points) {
+        // std::cout << debugcnt++ << std::endl;
+        if (x0 <= point.x && point.x <= x1 && y0 <= point.y && point.y <= y1) {
+            cloud_vector[0].points.push_back(point);
+        }
+        else if (x0 <= point.x && point.x <= x1 && y1 <= point.y && point.y <= y2) {
+            cloud_vector[1].points.push_back(point);
+        }
+        else if (x0 <= point.x && point.x <= x1 && y2 <= point.y && point.y <= y3) {
+            cloud_vector[2].points.push_back(point);
+        }
+        else if (x1 <= point.x && point.x <= x2 && y0 <= point.y && point.y <= y1) {
+            cloud_vector[3].points.push_back(point);
+        }
+        else if (x1 <= point.x && point.x <= x2 && y1 <= point.y && point.y <= y2) {
+            cloud_vector[4].points.push_back(point);
+        }
+        else if (x1 <= point.x && point.x <= x2 && y2 <= point.y && point.y <= y3) {
+            cloud_vector[5].points.push_back(point);
+        }
+        else if (x2 <= point.x && point.x <= x3 && y0 <= point.y && point.y <= y1) {
+            cloud_vector[6].points.push_back(point);
+        }
+        else if (x2 <= point.x && point.x <= x3 && y1 <= point.y && point.y <= y2) {
+            cloud_vector[7].points.push_back(point);
+        }
+        else {
+            cloud_vector[8].points.push_back(point);
         }
     }
-    src_copy.points.erase(src_copy.points.begin(), it);
+
+    // 1. remove_outliers;
+    for (int j = 0; j < 9; ++j) {
+        // std::cout<<"remove_outliers"<<std::endl;
+        std::sort(cloud_vector[j].points.begin(), cloud_vector[j].points.end(), point_cmp);
+        auto it = cloud_vector[j].points.begin();
+        for (int i  = 0; i < cloud_vector[j].points.size(); i++) {
+            // if(src_copy.points[i].z < -0.5*SENSOR_HEIGHTS){
+            if (cloud_vector[j].points[i].z < min_h) {
+                it++;
+            } else {
+                break;
+            }
+        }
+        cloud_vector[j].points.erase(cloud_vector[j].points.begin(), it);
+    }
+    
 
     // 2. set seeds!
     if (!ground_pc_.empty()) ground_pc_.clear();
     if (!non_ground_pc_.empty()) non_ground_pc_.clear();
 
-    extract_initial_seeds_(src_copy, ground_pc_);
-//  std::cout<<"\033[1;032m [Ground] num: "<<ground_pc.points.size()<<std::endl;
+    for (int i = 0; i < 9; ++i) {
+        extract_initial_seeds_(cloud_vector[i], ground_pc_);
+    }
+    // std::cout << "\033[1;032m [Ground] num: " << ground_pc_.points.size() << std::endl;
     // 3. Extract ground
     for (int i = 0; i < iter_groundfilter_; i++) {
         estimate_plane_(ground_pc_);

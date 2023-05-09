@@ -2,8 +2,8 @@
 
 <node name="kitti_mapgen" pkg="erasor" type="kitti_mapgen" output="screen">
     <rosparam param="/map/voxelsize">0.2</rosparam>		
-    <rosparam param="/map/target_rosbag">"05_2350_to_2670_w_interval_2_node.bag"</rosparam>
-    <rosparam param="/map/save_path">"/home/wzhoea/Desktop/erasor/save/run1/naive"</rosparam>
+    <rosparam param="/map/target_rosbag">"38_0_to_338_w_interval_2_node_preclean.bag"</rosparam>
+    <rosparam param="/map/save_path">"/home/wzhoea/Desktop/erasor/save/toydata_preclean/original"</rosparam>
     <rosparam param="/map/viz_interval">1</rosparam>
     <rosparam param="/large_scale/is_large_scale">true</rosparam>
 </node>

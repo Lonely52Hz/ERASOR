@@ -7,7 +7,7 @@
 <node name="rviz" pkg="rviz" type="rviz" args="-d $(find erasor)/rviz/erasor_map.rviz"/>
 <node name="rviz_body" pkg="rviz" type="rviz" args="-d $(find erasor)/rviz/srt.rviz"/>
 
-<rosparam command="load" file="$(find erasor)/config/seq_05.yaml" />
+<rosparam command="load" file="$(find erasor)/config/seq_38.yaml" />
 
 
 </launch>
