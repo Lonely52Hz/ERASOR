@@ -254,7 +254,7 @@ def save_gps_vel_data(bag, kitti, gps_frame_id, topic):
         bag.write(topic, twist_msg, t=twist_msg.header.stamp)
 
 
-def save_data2node(bag, kitti, kitti_type, initial_time):
+def save_data2node(bag, kitti, kitti_type, seq, odometry_sequences, initial_time):
     CAM2BASE = np.array([[-1.857739385241e-03, -9.999659513510e-01, -8.039975204516e-03, -4.784029760483e-03],
                          [- 6.481465826011e-03, 8.051860151134e-03, - 9.999466081774e-01, - 7.337429464231e-02],
                          [9.999773098287e-01, -1.805528627661e-03, -6.496203536139e-03, -3.339968064433e-01],
@@ -266,77 +266,152 @@ def save_data2node(bag, kitti, kitti_type, initial_time):
 
     if kitti_type.find("odom") != -1:
         timestamps = map(lambda x: initial_time + x.total_seconds(), kitti.timestamps)
-        assert(len(kitti.T_w_cam0)) == len(kitti.velo)
-        assert(len(kitti.velo)) == len(kitti.label)
-        print("{} vs {} vs {}. Condition satisfied.".format(len(kitti.T_w_cam0), len(kitti.velo), len(kitti.label)))
-        iterable = zip(timestamps, kitti.velo, kitti.label, kitti.T_w_cam0)
-        bar = progressbar.ProgressBar()
-        count = 0
-        for timestamp, scan, label, tf_matrix_cam in bar(iterable):
-            tmp = np.matmul(tf_matrix_cam, CAM2BASE)
-            tf_matrix = np.matmul(tf_origin, tmp)
-            out = node()
-            tf_msg = TFMessage()
-            tf_stamped = TransformStamped()
-            tf_stamped.header.stamp = rospy.Time.from_sec(timestamp)
-            tf_stamped.header.frame_id = '/map'
-            tf_stamped.child_frame_id = 'camera_left'
+        if seq in odometry_sequences[:11]:
+            assert(len(kitti.T_w_cam0)) == len(kitti.velo)
+            assert(len(kitti.velo)) == len(kitti.label)
+            print("{} vs {} vs {}. Condition satisfied.".format(len(kitti.T_w_cam0), len(kitti.velo), len(kitti.label)))
+            iterable = zip(timestamps, kitti.velo, kitti.label, kitti.T_w_cam0)
+            bar = progressbar.ProgressBar()
+            count = 0
+            for timestamp, scan, label, tf_matrix_cam in bar(iterable):
+                tmp = np.matmul(tf_matrix_cam, CAM2BASE)
+                tf_matrix = np.matmul(tf_origin, tmp)
+                out = node()
+                tf_msg = TFMessage()
+                tf_stamped = TransformStamped()
+                tf_stamped.header.stamp = rospy.Time.from_sec(timestamp)
+                tf_stamped.header.frame_id = '/map'
+                tf_stamped.child_frame_id = 'camera_left'
 
-            t = tf_matrix[0:3, 3]
-            q = tf.transformations.quaternion_from_matrix(tf_matrix)
-            transform = Transform()
+                t = tf_matrix[0:3, 3]
+                q = tf.transformations.quaternion_from_matrix(tf_matrix)
+                transform = Transform()
 
-            transform.translation.x = t[0]
-            transform.translation.y = t[1]
-            transform.translation.z = t[2]
+                transform.translation.x = t[0]
+                transform.translation.y = t[1]
+                transform.translation.z = t[2]
 
-            transform.rotation.x = q[0]
-            transform.rotation.y = q[1]
-            transform.rotation.z = q[2]
-            transform.rotation.w = q[3]
+                transform.rotation.x = q[0]
+                transform.rotation.y = q[1]
+                transform.rotation.z = q[2]
+                transform.rotation.w = q[3]
 
-            tf_stamped.transform = transform
-            tf_msg.transforms.append(tf_stamped)
+                tf_stamped.transform = transform
+                tf_msg.transforms.append(tf_stamped)
 
-            bag.write('/tf', tf_msg, tf_msg.transforms[0].header.stamp)
+                bag.write('/tf', tf_msg, tf_msg.transforms[0].header.stamp)
 
-            pose_msg = Pose()
+                pose_msg = Pose()
 
-            pose_msg.position.x = t[0]
-            pose_msg.position.y = t[1]
-            pose_msg.position.z = t[2]
+                pose_msg.position.x = t[0]
+                pose_msg.position.y = t[1]
+                pose_msg.position.z = t[2]
 
-            pose_msg.orientation.x = q[0]
-            pose_msg.orientation.y = q[1]
-            pose_msg.orientation.z = q[2]
-            pose_msg.orientation.w = q[3]
+                pose_msg.orientation.x = q[0]
+                pose_msg.orientation.y = q[1]
+                pose_msg.orientation.z = q[2]
+                pose_msg.orientation.w = q[3]
 
-            header = Header()
-            header.seq = kitti.frame_range[count]
-            header.frame_id = "map"
-            header.stamp = rospy.Time.from_sec(timestamp)
-            fields = [PointField('x', 0, PointField.FLOAT32, 1),
-                      PointField('y', 4, PointField.FLOAT32, 1),
-                      PointField('z', 8, PointField.FLOAT32, 1),
-                      PointField('intensity', 12, PointField.FLOAT32, 1)]
+                header = Header()
+                header.seq = kitti.frame_range[count]
+                header.frame_id = "map"
+                header.stamp = rospy.Time.from_sec(timestamp)
+                fields = [PointField('x', 0, PointField.FLOAT32, 1),
+                        PointField('y', 4, PointField.FLOAT32, 1),
+                        PointField('z', 8, PointField.FLOAT32, 1),
+                        PointField('intensity', 12, PointField.FLOAT32, 1)]
 
-            scan_xyz = scan[:, :3]
-            label_float = label.astype(np.float32)
-            scan_w_label = np.concatenate((scan_xyz, label_float), axis=1)
+                scan_xyz = scan[:, :3]
+                label_float = label.astype(np.float32)
+                scan_w_label = np.concatenate((scan_xyz, label_float), axis=1)
 
-            pcl_msg = pcl2.create_cloud(header, fields, scan_w_label)
-            pcl_raw_msg = pcl2.create_cloud(header, fields, scan)
+                pcl_msg = pcl2.create_cloud(header, fields, scan_w_label)
+                pcl_raw_msg = pcl2.create_cloud(header, fields, scan)
 
-            out.header = header
-            out.odom = pose_msg
-            out.lidar = pcl_msg
+                out.header = header
+                out.odom = pose_msg
+                out.lidar = pcl_msg
 
 
-            bag.write('/node/combined/optimized', out, out.header.stamp)
-            bag.write('/debug/pc_raw', pcl_raw_msg, out.header.stamp)
-            bag.write('/debug/pc_label', pcl_msg, out.header.stamp)
+                bag.write('/node/combined/optimized', out, out.header.stamp)
+                bag.write('/debug/pc_raw', pcl_raw_msg, out.header.stamp)
+                bag.write('/debug/pc_label', pcl_msg, out.header.stamp)
 
-            count += 1
+                count += 1
+        else:
+            assert (len(kitti.T_w_cam0)) == len(kitti.velo)
+            print("{} vs {}. Condition satisfied.".format(
+                len(kitti.T_w_cam0), len(kitti.velo)))
+            iterable = zip(timestamps, kitti.velo, kitti.T_w_cam0)
+            bar = progressbar.ProgressBar()
+            count = 0
+            for timestamp, scan, tf_matrix_cam in bar(iterable):
+                if int(seq) is 22:
+                    tf_matrix = tf_matrix_cam
+                    #print("hi")
+                else:
+                    tmp = np.matmul(tf_matrix_cam, CAM2BASE)
+                    tf_matrix = np.matmul(tf_origin, tmp)
+                out = node()
+                tf_msg = TFMessage()
+                tf_stamped = TransformStamped()
+                tf_stamped.header.stamp = rospy.Time.from_sec(timestamp)
+                tf_stamped.header.frame_id = '/map'
+                tf_stamped.child_frame_id = 'camera_left'
+
+                t = tf_matrix[0:3, 3]
+                q = tf.transformations.quaternion_from_matrix(tf_matrix)
+                transform = Transform()
+
+                transform.translation.x = t[0]
+                transform.translation.y = t[1]
+                transform.translation.z = t[2]
+
+                transform.rotation.x = q[0]
+                transform.rotation.y = q[1]
+                transform.rotation.z = q[2]
+                transform.rotation.w = q[3]
+
+                tf_stamped.transform = transform
+                tf_msg.transforms.append(tf_stamped)
+
+                bag.write('/tf', tf_msg, tf_msg.transforms[0].header.stamp)
+
+                pose_msg = Pose()
+
+                pose_msg.position.x = t[0]
+                pose_msg.position.y = t[1]
+                pose_msg.position.z = t[2]
+
+                pose_msg.orientation.x = q[0]
+                pose_msg.orientation.y = q[1]
+                pose_msg.orientation.z = q[2]
+                pose_msg.orientation.w = q[3]
+
+                header = Header()
+                header.seq = kitti.frame_range[count]
+                header.frame_id = "map"
+                header.stamp = rospy.Time.from_sec(timestamp)
+                fields = [PointField('x', 0, PointField.FLOAT32, 1),
+                          PointField('y', 4, PointField.FLOAT32, 1),
+                          PointField('z', 8, PointField.FLOAT32, 1),
+                          PointField('intensity', 12, PointField.FLOAT32, 1)]
+
+                scan_xyz = scan[:, :3]
+                scan_w_label = np.concatenate((scan_xyz, scan[:, 3:4]), axis=1)
+
+                pcl_msg = pcl2.create_cloud(header, fields, scan_w_label)
+                pcl_raw_msg = pcl2.create_cloud(header, fields, scan)
+
+                out.header = header
+                out.odom = pose_msg
+                out.lidar = pcl_msg
+
+                bag.write('/node/combined/optimized', out, out.header.stamp)
+                bag.write('/debug/pc_raw', pcl_raw_msg, out.header.stamp)
+                bag.write('/debug/pc_label', pcl_msg, out.header.stamp)
+
+                count += 1
 
 
 def main():
@@ -346,7 +421,7 @@ def main():
     # Accepted argument values
     kitti_types = ["raw_synced", "odom_color", "odom_gray", "odom_noimg"]
     odometry_sequences = []
-    for s in range(22):
+    for s in range(23):
         odometry_sequences.append(str(s).zfill(2))
     
     parser.add_argument("--kitti_type", default="odom_noimg", choices=kitti_types, help="KITTI dataset type")
@@ -405,7 +480,7 @@ def main():
 
     if args.sequence in odometry_sequences[:11]:
         print("Odometry dataset sequence {} has ground truth information (poses).".format(args.sequence))
-        kitti.load_poses()
+        kitti.load_label()
 
     try:
         util = pykitti.utils.read_calib_file(os.path.join(args.dir, 'sequences', args.sequence, 'calib.txt'))
@@ -417,10 +492,11 @@ def main():
             used_cameras = cameras[-2:]
 
         kitti.load_velo()
-        kitti.load_label()
+        kitti.load_poses()
         velo_frame_id = 'velo_link'
         velo_topic = '/kitti/velo'
-        save_data2node(bag, kitti, args.kitti_type, initial_time=current_epoch)
+        save_data2node(bag, kitti, args.kitti_type, args.sequence,
+                       odometry_sequences, initial_time=current_epoch)
         # save_static_transform_velo(bag, kitti, 'camera_left', velo_frame_id, initial_time=current_epoch)
         # save_velo_data_odom(bag, kitti, velo_frame_id, velo_topic, initial_time=current_epoch)
         #
