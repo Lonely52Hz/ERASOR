@@ -20,9 +20,9 @@ erasor:
 MapUpdater:
 
     data_name: "08"
-    initial_map_path: "/home/wzhoea/Desktop/erasor/save/mine/original/08_3930_to_4070_w_interval2_voxel_0.200000.pcd"
+    initial_map_path: "/home/wzhoea/Desktop/erasor/save/mine_preclean/original/08_3930_to_4070_w_interval2_voxel_0.200000.pcd"
     env: "outdoor"
-    save_path: "/home/wzhoea/Desktop/erasor/save/mine/final"
+    save_path: "/home/wzhoea/Desktop/erasor/save/mine_preclean/final"
     query_voxel_size: 0.2
     map_voxel_size: 0.05 
     voxelization_interval: 5
