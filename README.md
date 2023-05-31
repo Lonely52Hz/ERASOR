@@ -1,3 +1,15 @@
+# Updates (Scan-to-map part)
+To install the environment, please refert to the original readme file below, or use the docker file provided. And then you need to build the ROS. An exmaple is `cd /home/wzhoea/Desktop/erasor && source /opt/ros/melodic/setup.bash && catkin build erasor -DPYTHON_EXECUTABLE=/usr/bin/python && source devel/setup.bash`.
+
+To build the rosbag for dataset, please open to the path `scripts/semantickitti2bag` and run `python kitti2node.py -t None -r None -s 08 --kitti_type "odom_noimg" --init_stamp 4030 --end_stamp 4030 --dir /media/wzhoea/T7/kitti_dataset/ --savedir /media/wzhoea/T7/my_erasor_dataset/`. Please change `-s`, `--init_stamp`, `--end_stamp`, `--dir`, and `--savedir` accordingly. For Scania, it is recommended to set `-s 22` and please follow the semanticKITTI directory format. You should change the predicted label folder name to `labels` just as the semanticKITTI.
+
+To generate the original map: `roslaunch erasor mapgen.launch`. Please remember to modify `target_rosbag` and `save_path` in `launch/mapgen.launch`. Open another terminal and play the rosbag like `rosbag play /media/wzhoea/T7/my_erasor_dataset/08_4030_to_4070_w_interval_2_node.bag`. After finishing, use `rostopic pub /saveflag std_msgs/Float32 "data: 0.2"` to save file.
+
+To generate the clean map: `roslaunch erasor run_erasor.launch`. Please remember to change `seq_xx.yaml` in `run_erasor.lunch` file. For Scania dataset, `xx` is recommended to `22`, others to `05`. Also, please remember to change the `initial_map_path` and `save_path` in the corresponding `.yaml` file. Open another terminal and play the rosbag like `rosbag play /media/wzhoea/T7/my_erasor_dataset/08_4030_to_4070_w_interval_2_node.bag`. After finishing, use `rostopic pub /saveflag std_msgs/Float32 "data: 0.2"` to save file.
+
+For semanticKITTI dataset, if you want to visualize the results better, you can `python utils/change_intensity.py -p /home/wzhoea/Desktop/erasor/save/query/ -s /home/wzhoea/Desktop/erasor/save/query_after/`, which will change instensity of the `.pcd` file based on the labels. Then in cloudcompare, you can set intensity to view static and dynamic points. (It uses python=2.7 and installs numpy, argparse, pypcd, tqdm and open3d, so you should install a new conda envrionment).
+
+
 # :rainbow: ERASOR (RA-L'21 with ICRA Option)
 
 Official page of [*"ERASOR: Egocentric Ratio of Pseudo Occupancy-based Dynamic Object Removal for Static 3D Point Cloud Map Building"*](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9361109), which is accepted by RA-L with ICRA'21 option 
